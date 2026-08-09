@@ -1,0 +1,36 @@
+{
+  "name": "Devbox - General",
+  "image": "ghcr.io/projectew/devbox:general",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "updateRemoteUserUID": true,
+  "init": true,
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder}/workspace,target=/workspace,type=bind,consistency=cached",
+  "containerEnv": {
+    "DEVBOX_SECURITY_PROFILE": "general",
+    "DEVBOX_PROJECT_ROOT": "/workspace",
+    "UV_PROJECT_ENVIRONMENT": ".venv"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "golang.go",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "postCreateCommand": "bash /usr/local/libexec/devbox/setup.sh"
+}

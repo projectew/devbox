@@ -1,0 +1,56 @@
+name: Publish general Dev Container
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .devcontainer/Dockerfile
+      - control/setup.sh
+      - .github/workflows/publish-general.yml
+  workflow_dispatch:
+
+concurrency:
+  group: publish-general
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish general Dev Container
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          target: general
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/projectew/devbox:general
+            ghcr.io/projectew/devbox:general-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.description=General-purpose Dev Container for project development
+          cache-from: type=gha,scope=general-amd64
+          cache-to: type=gha,mode=max,scope=general-amd64
+

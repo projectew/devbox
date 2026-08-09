@@ -25,6 +25,23 @@ daemon is deliberately not exposed.
 The first build downloads language runtimes and VS Code extensions. Rebuild the
 container after changing Docker build arguments or either Dev Container file.
 
+## Use the published Dev Container in a new project
+
+The general image is published for Linux amd64 at
+`ghcr.io/projectew/devbox:general`. Copy
+[`examples/general/.devcontainer/devcontainer.json`](examples/general/.devcontainer/devcontainer.json)
+to `.devcontainer/devcontainer.json` in a new project's root, then run **Dev
+Containers: Reopen in Container**.
+
+The complete configuration pulls the image, mounts the new project at
+`/workspace`, and runs the trusted setup script built into the image. That script
+installs only the language versions and dependencies declared by the new
+project. No registry credential is required while the GHCR package is public.
+
+The mutable `general` tag follows the latest successful build from `main`. For a
+reproducible project, replace it with the immutable commit tag emitted by the
+workflow, such as `general-<full-git-sha>`.
+
 ## Toolchain policy
 
 - Python is installed and managed by uv. Start a project with `uv init`, add
