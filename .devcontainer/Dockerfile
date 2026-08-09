@@ -9,7 +9,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 FROM debian:bookworm-slim AS core
 
 LABEL org.opencontainers.image.source="https://github.com/projectew/devbox"
-LABEL org.opencontainers.image.description="Hardened VS Code agent development environment"
+LABEL org.opencontainers.image.description="VS Code development environment with general and hardened-agent profiles"
 
 ARG MISE_VERSION
 ARG CODEX_VERSION

@@ -1,105 +1,137 @@
-# General development Dev Containers
+# Devbox
 
-This project provides two custom-Dockerfile-based VS Code Dev Container
-variants for WSL-hosted work in `/home/jordan/projects/devbox`.
+Devbox is a trusted wrapper for running a project in one of two VS Code Dev
+Container profiles:
 
-| Variant | Intended use | Privilege and host access |
+- **General** provides a convenient, non-root development environment with
+  passwordless `sudo`.
+- **Hardened Agent** adds container-level restrictions for AI agents and other
+  less-trusted project automation.
+
+The containers provide reproducible tooling and defense in depth. They are
+designed to run inside a disposable Linux VM or similarly isolated development
+host; the VM remains the primary boundary protecting a personal workstation and
+its credentials.
+
+## Trusted wrapper layout
+
+```text
+devbox/
+├── .devcontainer/   trusted container definitions
+├── control/         trusted setup and managed agent policy
+└── workspace/       project files exposed to the container
+```
+
+Only `workspace/` is mounted at `/workspace`. Keeping the Dev Container and
+control files outside that mount prevents processes in the container from
+changing the configuration used for the next rebuild or start.
+
+## Profiles
+
+| Profile | Intended use | Current behavior |
 | --- | --- | --- |
-| **Devbox - General** | Python, Node/web, Go, Rust, and container-client work | Non-root by default, passwordless sudo available; exact project mounted; Docker socket not mounted |
-| **Devbox - Hardened Agent** | AI agents and less-trusted generated code | No sudo; read-only root; capabilities dropped; ephemeral home; Git/SSH credential paths disabled; Docker socket absent |
+| **General** | Normal development and trusted automation | Runs as `vscode`, permits passwordless `sudo`, persists the user home with the container, and runs project setup once after creation |
+| **Hardened Agent** | AI agents and less-trusted generated code | Runs without `sudo`, uses a read-only root filesystem, drops all capabilities, applies resource limits, uses ephemeral writable storage, and checks its boundary on every start |
 
-Both variants use uv-managed Python and mise-managed Node, Go, and Rust. Codex
-CLI and its Linux `bubblewrap` sandbox dependency are installed in the shared
-image. The Docker CLI and Compose/Buildx plugins are installed, but the host
-daemon is deliberately not exposed.
+Neither profile declares a host Docker-socket or SSH-agent mount. The hardened
+profile additionally points `SSH_AUTH_SOCK` at a nonexistent socket and verifies
+that no real agent socket is available. The image does not currently install the
+Docker CLI.
 
-## Open a variant
+## Open this repository locally
 
-1. Open this WSL folder in VS Code.
-2. Run **Dev Containers: Reopen in Container**.
-3. Select **Devbox - General** or **Devbox - Hardened Agent** when prompted.
-4. After creation, run `bash scripts/check-environment.sh` at any time to inspect
-   the installed toolchain. The hardened variant runs its stricter preflight
-   automatically.
+1. Put or clone the project to develop under `workspace/`.
+2. Open the trusted wrapper directory in VS Code on the isolated Linux host.
+3. Run **Dev Containers: Reopen in Container**.
+4. Select **Devbox - General** or **Devbox - Hardened Agent**.
 
-The first build downloads language runtimes and VS Code extensions. Rebuild the
-container after changing Docker build arguments or either Dev Container file.
+The first build downloads the base image dependencies and VS Code extensions.
+The project toolchains are installed later from declarations under `workspace/`.
 
-## Use the published Dev Container in a new project
+## Use the published general container
 
-The general image is published for Linux amd64 at
-`ghcr.io/projectew/devbox:general`. Copy
+The workflow in `.github/workflows/publish-general.yml` publishes the general
+Linux amd64 image on successful pushes to `main`:
+
+```text
+ghcr.io/projectew/devbox:general
+ghcr.io/projectew/devbox:general-<full-git-sha>
+```
+
+The moving `general` tag is convenient for evaluation. Use a commit-qualified
+tag when a project needs repeatable builds.
+
+For a new trusted wrapper, copy
 [`examples/general/.devcontainer/devcontainer.json`](examples/general/.devcontainer/devcontainer.json)
-to `.devcontainer/devcontainer.json` in a new project's root, then run **Dev
-Containers: Reopen in Container**.
+to `.devcontainer/devcontainer.json`, create the sibling `workspace/` directory,
+and put the actual project inside it. The example pulls the public image rather
+than rebuilding the Dockerfile while preserving the trusted-wrapper mount
+boundary.
 
-The complete configuration pulls the image, mounts the new project at
-`/workspace`, and runs the trusted setup script built into the image. That script
-installs only the language versions and dependencies declared by the new
-project. No registry credential is required while the GHCR package is public.
+Only the general profile is published today. The hardened profile still depends
+on runtime restrictions in its local `devcontainer.json` and must not be treated
+as hardened when started from the image alone.
 
-The mutable `general` tag follows the latest successful build from `main`. For a
-reproducible project, replace it with the immutable commit tag emitted by the
-workflow, such as `general-<full-git-sha>`.
+## Included tools
 
-## Toolchain policy
+The shared image contains common build utilities plus:
 
-- Python is installed and managed by uv. Start a project with `uv init`, add
-  dependencies with `uv add`, and run commands with `uv run`.
-- Node, Go, and Rust are installed through mise and declared in `mise.toml`.
-  Use `mise use node@<version>` (and the corresponding command for Go or Rust)
-  to change a project toolchain. Corepack support is enabled for Node package
-  managers.
-- Python is deliberately absent from `mise.toml`; uv remains the sole Python
-  implementation and environment manager.
-- Docker is client-only by default. Point `DOCKER_HOST` at a deliberately
-  provisioned rootless/remote engine when container execution is required.
+- Git and Git LFS;
+- uv `0.11.32` for Python installation, virtual environments, and dependencies;
+- mise `2026.7.13` for Node, Go, Rust, and other non-Python tools;
+- Codex CLI `0.147.0` and `bubblewrap` for Codex's Linux sandbox.
 
-The image pins `uv` to 0.11.32 and the mise CLI to 2026.7.13. The project config
-tracks Node v24 LTS, Go 1.26, and stable Rust. Codex CLI is pinned to 0.147.0
-through the official standalone installer. For stronger reproducibility, use
-fully qualified patch versions, enable a mise lockfile, and pin base images and
-the uv stage by digest.
+The image does not preinstall project-selected Python, Node, Go, or Rust
+versions. The declarations currently included under `workspace/` are examples:
+Python 3.14 through `.python-version`, and Node 24, Go 1.26, and stable Rust
+through `mise.toml`.
+
+## Project setup behavior
+
+The trusted `/usr/local/libexec/devbox/setup.sh` script runs from the image.
+General mode invokes it after container creation; hardened mode invokes it after
+every start.
+
+- `.python-version` or `.python-versions` causes uv to install the requested
+  Python version.
+- `pyproject.toml` is synchronized with `uv sync --locked` when `uv.lock`
+  exists; otherwise uv creates initial lock data.
+- `mise.toml` or `.mise.toml` causes mise to install declared tools. A present
+  `mise.lock` is enforced with `mise install --locked`; otherwise mise performs
+  an unlocked install.
+- `package.json` is installed with `npm ci` when an npm lockfile exists and
+  `npm install` otherwise.
+- A configured `pre-commit` dependency may install repository Git hooks.
+
+The hardened profile sets `MISE_SAFE=1`, but it still reads project tool
+declarations. Lockfiles are strongly recommended but are not currently required
+by the setup script.
 
 ## Codex CLI
 
-Run `codex` from `/workspace`. The general variant keeps Codex state under the
-normal user home for the life of the container. The hardened variant keeps its
-home and `~/.codex` state in tmpfs, so login tokens and sessions disappear when
-the container is removed; use `codex login --device-auth` for a headless login.
-Neither variant receives host Codex credentials or API keys automatically.
+Run `codex` from `/workspace`. No host Codex state, API key, or login token is
+mounted automatically.
 
-The hardened image also installs immutable requirements at
-`/etc/codex/requirements.toml`. They allow only read-only or workspace-scoped
-permission profiles, keep approvals human-reviewed, disable unmanaged hooks and
-login shells, and prevent `:danger-full-access`. Rebuild the image after changing
-this policy. Its Docker seccomp profile is deliberately unconfined so
-`bubblewrap` can create Codex's nested sandbox; the read-only root, dropped
-capabilities, `no-new-privileges`, tmpfs mounts, and managed Codex requirements
-remain enforced.
+The hardened image installs root-owned requirements at
+`/etc/codex/requirements.toml`. They limit Codex to read-only or workspace
+permissions, require user-reviewed approvals, disable login shells and
+unmanaged hooks, and reject `:danger-full-access`. The hardened Dev Container
+also disables Docker's default seccomp profile so `bubblewrap` can create its
+nested sandbox; the other container restrictions remain enabled.
 
-## AI authorization pattern
+## Security
 
-Use the hardened container as the outer boundary and configure the agent or
-harness as the inner policy boundary:
+Read [SECURITY.md](SECURITY.md) before using the hardened profile. In particular:
 
-1. default file writes to `/workspace` only;
-2. require approval for network, credentials, elevated actions, and destructive
-   commands;
-3. issue scoped, short-lived credentials only after approval;
-4. log tool requests and approval decisions outside the agent-controlled
-   workspace when auditability matters;
-5. review the workspace diff before any trusted build, deploy, or publish step.
+- keep valuable credentials and unrelated files outside `workspace/`;
+- do not mount Windows drives, a Docker socket, SSH agents, or personal config
+  directories into the agent container;
+- treat network access and project dependency installation as code execution;
+- review project changes before using trusted credentials or deployment tools;
+- discard and recreate the outer VM after high-risk work.
 
-See [SECURITY.md](SECURITY.md) for the threat model and limitations.
+## Local overrides
 
-## Local tool overrides
-
-`mise.local.toml` is ignored by Git and is the right place for personal tool
-overrides. Do not put secrets in it: mise configuration is executable/trusted
-input, and an agent that can read the workspace can read that file too.
-
-The hardened variant ignores all mise configuration under `/workspace` and uses
-the immutable `/etc/mise/config.toml` copy baked into the image. Rebuild that
-variant after changing tool versions; this prevents an agent from turning a
-workspace config hook into code execution outside its normal command flow.
+`mise.local.toml` and `mise.*.local.toml` are ignored by Git for personal tool
+overrides. They are still readable by any process with workspace access, so they
+must not contain secrets.
