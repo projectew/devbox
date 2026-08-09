@@ -1,0 +1,14 @@
+# Immutable Codex policy for the hardened agent container. The outer container
+# remains the primary boundary; these requirements prevent Codex invocations
+# from weakening the inner sandbox or silently self-approving escalations.
+
+allow_login_shell = false
+allow_managed_hooks_only = true
+allowed_approval_policies = ["untrusted", "on-request", "never"]
+allowed_approvals_reviewers = ["user"]
+default_permissions = ":workspace"
+
+[allowed_permission_profiles]
+":read-only" = true
+":workspace" = true
+":danger-full-access" = false

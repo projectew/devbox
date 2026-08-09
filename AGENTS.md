@@ -1,0 +1,1 @@
+Codex: Reference chat conversation @Anonymous Usage of LLMs, which serves as a brainstorming and design spec for this project and its motivations

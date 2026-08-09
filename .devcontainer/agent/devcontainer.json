@@ -1,0 +1,63 @@
+{
+  "name": "Devbox - Hardened Agent",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "../..",
+    "target": "agent",
+    "args": {
+      "UV_VERSION": "0.11.32",
+      "MISE_VERSION": "v2026.7.13",
+      "CODEX_VERSION": "0.147.0"
+    }
+  },
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "updateRemoteUserUID": false,
+  "init": true,
+  "mounts": [
+    "source=${localWorkspaceFolder}/control/agent.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly"
+  ],
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder}/workspace,target=/workspace,type=bind,consistency=cached",
+  "runArgs": [
+    "--read-only",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges=true",
+    "--security-opt=seccomp=unconfined",
+    "--pids-limit=1024",
+    "--memory=6g",
+    "--memory-swap=6g",
+    "--cpus=4",
+    "--tmpfs=/home/vscode:rw,nosuid,nodev,exec,size=4g,uid=1000,gid=1000,mode=0700",
+    "--tmpfs=/tmp:rw,nosuid,nodev,exec,size=2g",
+    "--tmpfs=/run:rw,nosuid,nodev,size=64m"
+  ],
+  "containerEnv": {
+    "DEVBOX_SECURITY_PROFILE": "agent-hardened",
+    "UV_PROJECT_ENVIRONMENT": ".venv",
+    "MISE_SAFE": "1",
+    "GIT_ASKPASS": "/bin/false",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_TERMINAL_PROMPT": "0",
+    "SSH_AUTH_SOCK": "/run/devbox-no-ssh-agent.sock"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "postStartCommand": "bash /usr/local/libexec/devbox/setup.sh"
+}

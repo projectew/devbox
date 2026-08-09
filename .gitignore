@@ -1,0 +1,16 @@
+.venv/
+.uv-cache/
+node_modules/
+target/
+dist/
+build/
+.env
+.env.*
+!.env.example
+mise.local.toml
+mise.*.local.toml
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store

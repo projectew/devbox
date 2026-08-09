@@ -1,0 +1,14 @@
+.git
+.venv
+node_modules
+target
+dist
+build
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+

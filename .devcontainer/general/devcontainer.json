@@ -1,0 +1,44 @@
+{
+  "name": "Devbox - General",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "../..",
+    "target": "general",
+    "args": {
+      "UV_VERSION": "0.11.32",
+      "MISE_VERSION": "v2026.7.13",
+      "CODEX_VERSION": "0.147.0"
+    }
+  },
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "updateRemoteUserUID": true,
+  "init": true,
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder}/workspace,target=/workspace,type=bind,consistency=cached",
+  "containerEnv": {
+    "UV_PROJECT_ENVIRONMENT": ".venv"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "golang.go",
+        "ms-azuretools.vscode-docker",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "postCreateCommand": "bash /usr/local/libexec/devbox/setup.sh"
+}

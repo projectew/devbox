@@ -1,0 +1,6 @@
+[user]
+    name = Devbox Agent
+    email = devbox-agent@localhost
+
+[credential]
+    helper =
