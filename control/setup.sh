@@ -24,7 +24,6 @@ require_command() {
         die "Required command not found: $1"
 }
 
-
 # ---------------------------------------------------------------------------
 # Base environment
 # ---------------------------------------------------------------------------
@@ -40,6 +39,31 @@ printf 'uv:   %s\n' "$(uv --version)"
 printf 'mise: %s\n' "$(mise --version)"
 printf 'Codex: %s\n' "$(codex --version)"
 
+check_env() {
+    log "Checking environment variables"
+
+    sensitive_vars=(
+        OPENAI_API_KEY
+        CODEX_ACCESS_TOKEN
+        AWS_ACCESS_KEY_ID
+        AWS_SECRET_ACCESS_KEY
+        GITHUB_TOKEN
+        FIREWORKS_API_KEY
+        OPENROUTER_API_KEY
+        LITELLM_MASTER_KEY
+        WEBUI_SECRET_KEY
+        POSTGRES_PASSWORD
+        REDIS_PASSWORD
+        OPENWEBUI_VIRTUAL_KEY
+    )
+
+    for name in "${sensitive_vars[@]}"; do
+        if [[ -n "${!name:-}" ]]; then
+            die "Sensitive host credential is present: ${name}"
+        fi
+    done
+
+}
 
 # ---------------------------------------------------------------------------
 # Hardened-agent boundary checks
@@ -71,22 +95,7 @@ check_agent_boundary() {
     [[ "$cap_eff" == "0000000000000000" ]] ||
         die "Effective Linux capabilities are not zero: ${cap_eff}"
 
-    sensitive_vars=(
-        OPENAI_API_KEY
-        CODEX_ACCESS_TOKEN
-        FIREWORKS_API_KEY
-        OPENROUTER_API_KEY
-        LITELLM_MASTER_KEY
-        AWS_ACCESS_KEY_ID
-        AWS_SECRET_ACCESS_KEY
-        GITHUB_TOKEN
-    )
-
-    for name in "${sensitive_vars[@]}"; do
-        if [[ -n "${!name:-}" ]]; then
-            die "Sensitive host credential is present: ${name}"
-        fi
-    done
+    check_env
 
     if [[ -f "$HOME/.gitconfig" ]]; then
         warn "A host/user Git configuration exists at $HOME/.gitconfig"
@@ -109,11 +118,11 @@ check_agent_boundary() {
     log "Agent boundary checks passed"
 }
 
+check_env
 
 if [[ "$PROFILE" == "agent-hardened" ]]; then
     check_agent_boundary
 fi
-
 
 # ---------------------------------------------------------------------------
 # Python / uv
@@ -139,7 +148,6 @@ if [[ -f "pyproject.toml" ]]; then
     fi
 fi
 
-
 # ---------------------------------------------------------------------------
 # mise project toolchain
 # ---------------------------------------------------------------------------
@@ -160,7 +168,6 @@ if [[ -f "mise.toml" || -f ".mise.toml" ]]; then
     mise current || true
 fi
 
-
 # ---------------------------------------------------------------------------
 # JavaScript dependencies
 # ---------------------------------------------------------------------------
@@ -178,20 +185,18 @@ if [[ -f "package.json" ]]; then
     fi
 fi
 
-
 # ---------------------------------------------------------------------------
 # Project hooks
 # ---------------------------------------------------------------------------
 
-if [[ -f ".pre-commit-config.yaml" ]] \
-    && [[ -f "pyproject.toml" ]]; then
+if [[ -f ".pre-commit-config.yaml" ]] &&
+    [[ -f "pyproject.toml" ]]; then
 
     if uv run --no-sync pre-commit --version >/dev/null 2>&1; then
         log "Installing pre-commit hooks"
         uv run --no-sync pre-commit install
     fi
 fi
-
 
 # ---------------------------------------------------------------------------
 # Final checks
